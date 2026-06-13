@@ -7,6 +7,9 @@
 docs/
 **/CLAUDE.md
 
+# ---- Misc ----
+sec.py
+
 # ---- Bundled local Postgres (use Docker instead) ----
 PostgreSQL/
 
