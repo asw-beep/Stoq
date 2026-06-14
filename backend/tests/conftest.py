@@ -61,6 +61,37 @@ def make_user(db_session):
 
 
 @pytest.fixture()
+def seed_stock(db_session):
+    """Factory: create a stock with N synthetic daily price bars."""
+    from datetime import date, timedelta
+
+    from models.stock import HistoricalPrice, Stock
+
+    def _seed(symbol: str = "AAPL", days: int = 60, start_price: float = 100.0):
+        stock = Stock(symbol=symbol.upper(), name=f"{symbol} Inc.", sector="Technology")
+        db_session.add(stock)
+        db_session.flush()
+        base = date(2024, 1, 1)
+        for i in range(days):
+            px = start_price + i * 0.5
+            db_session.add(
+                HistoricalPrice(
+                    stock_id=stock.id,
+                    date=base + timedelta(days=i),
+                    open=px,
+                    high=px + 1,
+                    low=px - 1,
+                    close=px,
+                    volume=1_000_000 + i,
+                )
+            )
+        db_session.commit()
+        return stock
+
+    return _seed
+
+
+@pytest.fixture()
 def auth_headers(make_user):
     """A registered user's Bearer auth header for protected-endpoint requests."""
     from core.security import create_access_token

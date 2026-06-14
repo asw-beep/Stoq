@@ -7,7 +7,7 @@ import logging
 
 from fastapi import FastAPI, Request, Response
 
-from api.routers import auth, health, stocks
+from api.routers import auth, forecasts, health, stocks
 from core.config import get_settings
 
 settings = get_settings()
@@ -40,6 +40,7 @@ async def security_headers(request: Request, call_next) -> Response:
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(stocks.router)
+app.include_router(forecasts.router)
 
 
 @app.get("/", tags=["root"])

@@ -24,6 +24,12 @@ dependencies = [
     # Market data
     "yfinance>=0.2.50",
     "pandas>=2.2",
+    # Forecasting (Phase 2). Lazy-imported inside model modules so the test
+    # suite (stubbed forecaster) runs without these heavy wheels installed.
+    "prophet>=1.1.5",
+    "xgboost>=2.1",
+    "scikit-learn>=1.5",
+    "numpy>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -34,8 +40,7 @@ dev = [
     "ruff>=0.7",
 ]
 
-# Heavy ML/NLP deps are added in their phases to keep Phase 1 light:
-#   forecast (Phase 2): prophet, xgboost, scikit-learn, numpy
+# Heavy ML/NLP deps are added in their phases to keep early phases light:
 #   sentiment (Phase 3): transformers, torch  (FinBERT)
 
 # Run from source (Docker / uvicorn) rather than building a wheel; the modular

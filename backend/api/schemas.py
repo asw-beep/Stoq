@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -35,6 +37,26 @@ class StockOut(BaseModel):
 
 class StockDetailOut(StockOut):
     price_count: int = 0
+
+
+class ForecastRequest(BaseModel):
+    # Day offsets to predict (default 1/7/30 per ML_Design). Bounded to keep
+    # training cheap and the request synchronous (ADR-0009).
+    horizons: list[int] = Field(default=[1, 7, 30], min_length=1, max_length=10)
+
+    def normalized_horizons(self) -> list[int]:
+        # De-duplicate, drop non-positive, sort — Prophet predicts up to max(h).
+        return sorted({h for h in self.horizons if h > 0})
+
+
+class ForecastOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    forecast_date: date
+    target_date: date
+    model: str
+    predicted_price: float
+    confidence: float | None = None
 
 
 class HealthOut(BaseModel):
