@@ -42,3 +42,29 @@ def client(db_session):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def make_user(db_session):
+    """Factory: create a persisted user and return it."""
+    from auth.repository import UserRepository
+    from core.security import hash_password
+
+    repo = UserRepository(db_session)
+
+    def _make(email: str = "user@example.com", password: str = "password123", role: str = "user"):
+        user = repo.create(email=email, password_hash=hash_password(password), role=role)
+        db_session.commit()
+        return user
+
+    return _make
+
+
+@pytest.fixture()
+def auth_headers(make_user):
+    """A registered user's Bearer auth header for protected-endpoint requests."""
+    from core.security import create_access_token
+
+    user = make_user()
+    token = create_access_token(subject=str(user.id))
+    return {"Authorization": f"Bearer {token}"}

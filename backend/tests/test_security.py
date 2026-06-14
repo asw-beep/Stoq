@@ -92,10 +92,10 @@ def test_bad_symbol_rejected_with_422(client, payload):
 # --------------------------------------------------------------------------- #
 # MEDIUM-001 / W-4 : reflected input in 404 detail stays JSON-safe.
 # --------------------------------------------------------------------------- #
-def test_reflected_symbol_is_json_encoded(client):
+def test_reflected_symbol_is_json_encoded(client, auth_headers):
     """A valid-but-missing symbol is reflected into a 404 body, JSON-encoded so it
     cannot break out of the response context."""
-    resp = client.get("/stocks/ZZZZ")
+    resp = client.get("/stocks/ZZZZ", headers=auth_headers)
     assert resp.status_code == 404
     assert resp.headers["content-type"].startswith("application/json")
     # Round-trips as JSON => cannot break out of the response context.
@@ -115,7 +115,6 @@ def test_invalid_symbol_error_is_json_encoded(client):
 # --------------------------------------------------------------------------- #
 # CRITICAL-003 / W-1 : authentication required on data endpoints.
 # --------------------------------------------------------------------------- #
-@pytest.mark.xfail(strict=True, reason="CRITICAL-003: no auth framework yet")
 @pytest.mark.parametrize("path", ["/stocks", "/stocks/AAPL"])
 def test_endpoints_require_auth(client, path):
     assert client.get(path).status_code == 401
@@ -136,9 +135,8 @@ def test_weak_secret_rejected_in_production(monkeypatch):
 # --------------------------------------------------------------------------- #
 # CRITICAL-005 / W-10 : a real password-hashing service must exist.
 # --------------------------------------------------------------------------- #
-@pytest.mark.xfail(strict=True, reason="CRITICAL-005: no password hashing service implemented")
 def test_password_service_hashes_and_verifies():
-    from core import security  # module does not exist yet
+    from core import security
 
     hashed = security.hash_password("hunter2")
     assert hashed != "hunter2" and hashed.startswith("$")  # bcrypt/argon2 prefix
@@ -174,8 +172,8 @@ def test_security_headers_present(client):
 # --------------------------------------------------------------------------- #
 # MEDIUM-003 / W-12 : errors do not leak internals.
 # --------------------------------------------------------------------------- #
-def test_error_body_has_no_internal_traces(client):
-    body = client.get("/stocks/NOPE").text.lower()
+def test_error_body_has_no_internal_traces(client, auth_headers):
+    body = client.get("/stocks/NOPE", headers=auth_headers).text.lower()
     for needle in ("traceback", "sqlalchemy", "psycopg", "site-packages", "/app/"):
         assert needle not in body
 

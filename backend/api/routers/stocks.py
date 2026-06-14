@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from api.schemas import StockDetailOut, StockOut
+from auth.dependencies import get_current_user
 from core.validation import normalize_symbol
 from db.session import get_db
 from market_data.repository import StockRepository
+from models.user import User
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
@@ -26,14 +28,21 @@ def valid_symbol(symbol: str) -> str:
 
 
 @router.get("", response_model=list[StockOut])
-def list_stocks(db: Session = Depends(get_db)) -> list[StockOut]:
+def list_stocks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[StockOut]:
     repo = StockRepository(db)
     return [StockOut.model_validate(s) for s in repo.list_stocks()]
 
 
 @router.get("/{symbol}", response_model=StockDetailOut)
 def get_stock(
-    symbol: str = Depends(valid_symbol), db: Session = Depends(get_db)
+    # `valid_symbol` is declared first so a bad symbol is rejected with 422
+    # before the auth check runs (an unauthenticated bad request still 422s).
+    symbol: str = Depends(valid_symbol),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> StockDetailOut:
     repo = StockRepository(db)
     stock = repo.get_by_symbol(symbol)

@@ -17,8 +17,10 @@ dependencies = [
     "alembic>=1.13",
     "psycopg[binary]>=3.2",
     # Auth
-    "passlib[bcrypt]>=1.7",
+    "bcrypt>=4.1",  # password hashing (used directly; passlib is unmaintained — ADR-0007)
     "python-jose[cryptography]>=3.3",
+    "python-multipart>=0.0.9",  # OAuth2 password form parsing
+    "email-validator>=2.2",  # backs pydantic EmailStr
     # Market data
     "yfinance>=0.2.50",
     "pandas>=2.2",
