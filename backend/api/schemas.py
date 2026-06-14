@@ -19,6 +19,7 @@ class StockDetailOut(StockOut):
 
 
 class HealthOut(BaseModel):
+    # `environment` is deliberately NOT exposed — it discloses deployment posture
+    # to unauthenticated callers (W-5 / HIGH-002).
     status: str
-    environment: str
     database: str

@@ -17,6 +17,11 @@ RUN uv pip install --system --no-cache .
 # App source.
 COPY . .
 
+# Run as an unprivileged user — never as root (W-7 / HIGH-005).
+RUN useradd --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8000
 
 # Apply migrations, then start the API.

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from core.validation import normalize_symbol
 from market_data.provider import MarketDataProvider
 from market_data.repository import StockRepository
 
@@ -29,8 +30,12 @@ class MarketDataService:
         self.repo = StockRepository(db)
 
     def ingest_symbol(self, symbol: str, years: int) -> IngestResult:
-        """Fetch and persist stock info + historical prices for one symbol."""
-        symbol = symbol.upper()
+        """Fetch and persist stock info + historical prices for one symbol.
+
+        The symbol is validated *before* any outbound provider call so malformed
+        input can never reach the external network (W-3 / FUTURE-001).
+        """
+        symbol = normalize_symbol(symbol)
         logger.info("Ingesting %s (%dy history)", symbol, years)
 
         info = self.provider.get_stock_info(symbol)

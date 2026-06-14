@@ -32,14 +32,18 @@ INJECTION_PAYLOADS = [
     "%27%20OR%201=1",
 ]
 
-# Inputs sendable through the test client's URL parser. Control chars (\n, NUL)
-# are deliberately excluded: httpx rejects them client-side before they reach the
-# app, so they cannot be exercised here — note that as defense-in-depth, and test
-# control-char handling at the validation layer once it exists (see W-3).
+# Inputs sendable through the test client's URL parser as a SINGLE path segment.
+# Two classes of payload are deliberately excluded from the HTTP-exercised list
+# because the client mangles them before they reach the app (defense-in-depth,
+# not app behaviour):
+#   * control chars (\n, NUL) — httpx rejects them client-side.
+#   * anything containing "/" (e.g. "../../etc/passwd", "<script>...</script>")
+#     — the client splits/normalizes it into a different path, so it never hits
+#     the /stocks/{symbol} route. These are covered at the service layer instead
+#     (test_service_rejects_bad_symbol_before_provider_call).
 BAD_INPUT_PAYLOADS = [
     "A" * 10_000,             # oversized
-    "<script>alert(1)</script>",
-    "../../etc/passwd",
+    "<script>",               # invalid charset (XSS-ish, single segment)
     "%0A",                    # encoded newline (log injection)
     "💥📈",                    # unicode
 ]
@@ -79,10 +83,9 @@ def test_bad_symbol_does_not_500(client, payload):
     assert client.get("/health").status_code == 200  # process still healthy
 
 
-@pytest.mark.xfail(strict=True, reason="CRITICAL-002: no ^[A-Z0-9.-]{1,20}$ validation yet")
 @pytest.mark.parametrize("payload", BAD_INPUT_PAYLOADS)
 def test_bad_symbol_rejected_with_422(client, payload):
-    """Target: invalid symbols rejected at validation, not silently 404'd."""
+    """Invalid symbols are rejected at validation, not silently 404'd."""
     assert client.get(f"/stocks/{payload}").status_code == 422
 
 
@@ -90,11 +93,23 @@ def test_bad_symbol_rejected_with_422(client, payload):
 # MEDIUM-001 / W-4 : reflected input in 404 detail stays JSON-safe.
 # --------------------------------------------------------------------------- #
 def test_reflected_symbol_is_json_encoded(client):
-    resp = client.get("/stocks/<script>")
+    """A valid-but-missing symbol is reflected into a 404 body, JSON-encoded so it
+    cannot break out of the response context."""
+    resp = client.get("/stocks/ZZZZ")
     assert resp.status_code == 404
     assert resp.headers["content-type"].startswith("application/json")
     # Round-trips as JSON => cannot break out of the response context.
     assert isinstance(resp.json()["detail"], str)
+    assert "ZZZZ" in resp.json()["detail"]
+
+
+def test_invalid_symbol_error_is_json_encoded(client):
+    """An invalid symbol is rejected with a JSON 422 — the rejected input never
+    reaches an HTML/unescaped context."""
+    resp = client.get("/stocks/<script>")
+    assert resp.status_code == 422
+    assert resp.headers["content-type"].startswith("application/json")
+    resp.json()  # must be valid JSON
 
 
 # --------------------------------------------------------------------------- #
@@ -109,7 +124,6 @@ def test_endpoints_require_auth(client, path):
 # --------------------------------------------------------------------------- #
 # CRITICAL-001 / W-2 : weak default secret must be rejected in production.
 # --------------------------------------------------------------------------- #
-@pytest.mark.xfail(strict=True, reason="CRITICAL-001: startup does not reject weak secrets")
 def test_weak_secret_rejected_in_production(monkeypatch):
     from core.config import Settings
 
@@ -135,7 +149,6 @@ def test_password_service_hashes_and_verifies():
 # --------------------------------------------------------------------------- #
 # HIGH-002 / W-5 : /health must not disclose environment.
 # --------------------------------------------------------------------------- #
-@pytest.mark.xfail(strict=True, reason="HIGH-002: /health leaks 'environment'")
 def test_health_does_not_disclose_environment(client):
     body = client.get("/health").json()
     assert "environment" not in body
@@ -151,7 +164,6 @@ def test_health_never_leaks_secrets(client):
 # --------------------------------------------------------------------------- #
 # HIGH-003 / W-6 : security headers present.
 # --------------------------------------------------------------------------- #
-@pytest.mark.xfail(strict=True, reason="HIGH-003: no security-headers middleware")
 def test_security_headers_present(client):
     h = client.get("/health").headers
     assert h.get("x-content-type-options") == "nosniff"
@@ -197,7 +209,6 @@ class _RecordingProvider:
         return []
 
 
-@pytest.mark.xfail(strict=True, reason="FUTURE-001: service does not validate symbols pre-fetch")
 def test_service_rejects_bad_symbol_before_provider_call(db_session):
     from market_data.service import MarketDataService
 
@@ -211,13 +222,11 @@ def test_service_rejects_bad_symbol_before_provider_call(db_session):
 # --------------------------------------------------------------------------- #
 # HIGH-005 / HIGH-006 : container & compose hardening (static file checks).
 # --------------------------------------------------------------------------- #
-@pytest.mark.xfail(strict=True, reason="HIGH-005: Dockerfile runs as root (no USER)")
 def test_dockerfile_runs_as_non_root():
     text = (_REPO_ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
     assert "USER " in text
 
 
-@pytest.mark.xfail(strict=True, reason="HIGH-006: compose publishes 5432 to the host")
 def test_compose_does_not_expose_postgres_to_host():
     text = (_REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     assert '"5432:5432"' not in text and "5432:5432" not in text

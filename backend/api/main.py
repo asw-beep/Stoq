@@ -5,7 +5,7 @@ Run (from backend/):  uvicorn api.main:app --reload
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 
 from api.routers import health, stocks
 from core.config import get_settings
@@ -18,6 +18,24 @@ app = FastAPI(
     version="0.1.0",
     description="Stock forecasting, news sentiment, and portfolio analytics.",
 )
+
+# Baseline security headers applied to every response (W-6 / HIGH-003).
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next) -> Response:
+    response = await call_next(request)
+    for header, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    return response
+
 
 app.include_router(health.router)
 app.include_router(stocks.router)

@@ -7,8 +7,13 @@ local `.env` at the repo root for host-run commands like Alembic migrations).
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Minimum acceptable secret length in production (== openssl rand -hex 32 output).
+_MIN_SECRET_LENGTH = 32
+# Substrings that mark an obviously-default / placeholder secret.
+_WEAK_SECRET_MARKERS = ("change-me", "use-openssl")
 
 # Repo root is two levels up from this file: backend/core/config.py -> repo root.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -44,6 +49,29 @@ class Settings(BaseSettings):
     # ---- App ----
     environment: str = "development"
     log_level: str = "INFO"
+
+    @model_validator(mode="after")
+    def _enforce_secret_strength(self) -> "Settings":
+        """Refuse to boot in production with a weak/placeholder secret (W-2).
+
+        Only enforced when ``environment == "production"`` so local development
+        keeps working with the default. A misconfigured production deploy fails
+        fast at startup instead of silently signing tokens with a known key.
+        """
+        if self.environment.lower() != "production":
+            return self
+        secret = self.secret_key.lower()
+        if any(marker in secret for marker in _WEAK_SECRET_MARKERS):
+            raise ValueError(
+                "SECRET_KEY is a placeholder/default value; set a strong secret "
+                "in production (e.g. `openssl rand -hex 32`)."
+            )
+        if len(self.secret_key) < _MIN_SECRET_LENGTH:
+            raise ValueError(
+                f"SECRET_KEY must be at least {_MIN_SECRET_LENGTH} characters in "
+                "production."
+            )
+        return self
 
     @computed_field  # type: ignore[prop-decorator]
     @property
