@@ -45,10 +45,15 @@ services:
       MARKET_DATA_PROVIDER: ${MARKET_DATA_PROVIDER}
       SEED_SYMBOLS: ${SEED_SYMBOLS}
       HISTORY_YEARS: ${HISTORY_YEARS}
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY}
       ENVIRONMENT: ${ENVIRONMENT}
       LOG_LEVEL: ${LOG_LEVEL}
     ports:
       - "8000:8000"
+    volumes:
+      # FinBERT model cache: ~500 MB downloaded on first use, reused on rebuild.
+      - hf_cache:/hf_cache
 
 volumes:
   pgdata:
+  hf_cache:

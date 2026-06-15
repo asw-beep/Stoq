@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base, TimestampMixin
@@ -12,8 +12,12 @@ from db.base import Base, TimestampMixin
 
 class NewsArticle(Base, TimestampMixin):
     __tablename__ = "news_articles"
+    __table_args__ = (UniqueConstraint("url", name="uq_news_url"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    stock_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stocks.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     content: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str | None] = mapped_column(String(120))

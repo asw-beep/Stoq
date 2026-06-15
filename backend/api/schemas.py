@@ -101,6 +101,34 @@ class PortfolioDetailOut(BaseModel):
     total_gain_loss: float | None = None
 
 
+# ---- news ----
+
+class SentimentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    sentiment: str
+    confidence: float
+
+
+class NewsArticleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    source: str | None = None
+    url: str | None = None
+    published_at: date | None = None
+    sentiment: SentimentOut | None = None
+
+
+class NewsIngestOut(BaseModel):
+    symbol: str
+    fetched: int
+    inserted: int
+    scored: int
+    articles: list[NewsArticleOut]
+
+
 class HealthOut(BaseModel):
     # `environment` is deliberately NOT exposed — it discloses deployment posture
     # to unauthenticated callers (W-5 / HIGH-002).
