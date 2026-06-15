@@ -7,7 +7,7 @@ import logging
 
 from fastapi import FastAPI, Request, Response
 
-from api.routers import auth, forecasts, health, stocks
+from api.routers import auth, forecasts, health, portfolios, stocks
 from core.config import get_settings
 
 settings = get_settings()
@@ -41,6 +41,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(stocks.router)
 app.include_router(forecasts.router)
+app.include_router(portfolios.router)
 
 
 @app.get("/", tags=["root"])

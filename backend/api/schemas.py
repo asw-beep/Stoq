@@ -59,6 +59,48 @@ class ForecastOut(BaseModel):
     confidence: float | None = None
 
 
+# ---- portfolio ----
+
+class PortfolioCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class HoldingCreate(BaseModel):
+    symbol: str = Field(min_length=1, max_length=20)
+    shares: float = Field(gt=0)
+    purchase_price: float = Field(gt=0)
+
+
+class HoldingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    symbol: str
+    shares: float
+    purchase_price: float
+    current_price: float | None = None
+    market_value: float | None = None
+    cost_basis: float
+    gain_loss: float | None = None
+
+
+class PortfolioSummaryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    holding_count: int = 0
+
+
+class PortfolioDetailOut(BaseModel):
+    id: int
+    name: str
+    holdings: list[HoldingOut] = []
+    total_cost: float = 0.0
+    total_value: float | None = None
+    total_gain_loss: float | None = None
+
+
 class HealthOut(BaseModel):
     # `environment` is deliberately NOT exposed — it discloses deployment posture
     # to unauthenticated callers (W-5 / HIGH-002).
