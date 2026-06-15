@@ -46,30 +46,29 @@ class Settings(BaseSettings):
     seed_symbols: str = "AAPL,MSFT,GOOGL,AMZN,NVDA,META,TSLA"
     history_years: int = 5
 
+    # ---- News / sentiment ----
+    finnhub_api_key: str = ""
+
     # ---- App ----
     environment: str = "development"
     log_level: str = "INFO"
 
     @model_validator(mode="after")
     def _enforce_secret_strength(self) -> "Settings":
-        """Refuse to boot in production with a weak/placeholder secret (W-2).
+        """Refuse to boot with a weak/placeholder secret in any environment (W-2).
 
-        Only enforced when ``environment == "production"`` so local development
-        keeps working with the default. A misconfigured production deploy fails
-        fast at startup instead of silently signing tokens with a known key.
+        Enforced universally — not just in production — because staging and dev
+        deployments are equally exploitable if they boot with the public default.
         """
-        if self.environment.lower() != "production":
-            return self
         secret = self.secret_key.lower()
         if any(marker in secret for marker in _WEAK_SECRET_MARKERS):
             raise ValueError(
-                "SECRET_KEY is a placeholder/default value; set a strong secret "
-                "in production (e.g. `openssl rand -hex 32`)."
+                "SECRET_KEY is a placeholder; set a strong secret in your .env "
+                "(e.g. `openssl rand -hex 32`)."
             )
         if len(self.secret_key) < _MIN_SECRET_LENGTH:
             raise ValueError(
-                f"SECRET_KEY must be at least {_MIN_SECRET_LENGTH} characters in "
-                "production."
+                f"SECRET_KEY must be at least {_MIN_SECRET_LENGTH} characters."
             )
         return self
 
