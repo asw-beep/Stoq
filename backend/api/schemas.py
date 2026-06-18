@@ -7,6 +7,19 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
+class Page[T](BaseModel):
+    """Generic pagination envelope for list endpoints (Phase 5, ADR-0010).
+
+    ``total`` is the unfiltered row count so clients can derive page counts;
+    ``items`` is the bounded slice for the requested ``limit``/``offset``.
+    """
+
+    items: list[T]
+    total: int
+    limit: int
+    offset: int
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     # bcrypt operates on the first 72 bytes; cap length to avoid silent truncation.

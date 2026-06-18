@@ -58,8 +58,13 @@ class PortfolioService:
         self.db.refresh(portfolio)
         return portfolio
 
-    def list_for_user(self, user_id: int) -> list[Portfolio]:
-        return self.repo.list_for_user(user_id)
+    def list_for_user(
+        self, user_id: int, limit: int | None = None, offset: int = 0
+    ) -> list[Portfolio]:
+        return self.repo.list_for_user(user_id, limit=limit, offset=offset)
+
+    def count_for_user(self, user_id: int) -> int:
+        return self.repo.count_for_user(user_id)
 
     def get_valued(self, user_id: int, portfolio_id: int) -> PortfolioValuation:
         """Return portfolio with per-holding and aggregate valuations."""

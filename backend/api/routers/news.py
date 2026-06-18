@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from api.routers.stocks import valid_symbol
 from api.schemas import NewsArticleOut, NewsIngestOut
 from auth.dependencies import get_current_user
 from core.config import get_settings
+from core.rate_limit import limiter
 from db.session import get_db
 from models.user import User
 from news.provider import FinnhubProvider
@@ -24,7 +25,9 @@ def get_provider() -> FinnhubProvider | None:
 
 
 @router.post("", response_model=NewsIngestOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 def ingest_news(
+    request: Request,
     days: int = Query(default=7, ge=1, le=90),
     symbol: str = Depends(valid_symbol),
     current_user: User = Depends(get_current_user),
@@ -36,9 +39,11 @@ def ingest_news(
     try:
         result = service.ingest(symbol, days=days)
     except NewsProviderNotConfiguredError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from None
     except UnknownStockError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from None
 
     return NewsIngestOut(
         symbol=result.symbol,
@@ -61,5 +66,5 @@ def get_news(
     try:
         articles = service.latest(symbol, limit=limit)
     except UnknownStockError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from None
     return [NewsArticleOut.model_validate(a) for a in articles]

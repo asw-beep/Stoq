@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
-from datetime import date, timedelta
 
 from models.stock import HistoricalPrice, Stock
 
@@ -43,7 +44,7 @@ def test_create_portfolio(client, auth_headers):
 def test_list_portfolios_empty(client, auth_headers):
     resp = client.get("/portfolios", headers=auth_headers)
     assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.json() == {"items": [], "total": 0, "limit": 50, "offset": 0}
 
 
 def test_list_portfolios(client, auth_headers):
@@ -51,7 +52,9 @@ def test_list_portfolios(client, auth_headers):
     client.post("/portfolios", json={"name": "P2"}, headers=auth_headers)
     resp = client.get("/portfolios", headers=auth_headers)
     assert resp.status_code == 200
-    names = [p["name"] for p in resp.json()]
+    body = resp.json()
+    assert body["total"] == 2
+    names = [p["name"] for p in body["items"]]
     assert "P1" in names and "P2" in names
 
 
@@ -195,4 +198,4 @@ def test_portfolio_isolation_between_users(client, make_user):
     client.post("/portfolios", json={"name": "U1 portfolio"}, headers=h1)
     resp = client.get("/portfolios", headers=h2)
     assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.json() == {"items": [], "total": 0, "limit": 50, "offset": 0}

@@ -17,8 +17,14 @@ class StockRepository:
         self.db = db
 
     # ---- stocks ----
-    def list_stocks(self) -> list[Stock]:
-        return list(self.db.scalars(select(Stock).order_by(Stock.symbol)))
+    def list_stocks(self, limit: int | None = None, offset: int = 0) -> list[Stock]:
+        stmt = select(Stock).order_by(Stock.symbol).offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return list(self.db.scalars(stmt))
+
+    def count_stocks(self) -> int:
+        return self.db.scalar(select(func.count()).select_from(Stock)) or 0
 
     def get_by_symbol(self, symbol: str) -> Stock | None:
         return self.db.scalar(select(Stock).where(Stock.symbol == symbol.upper()))

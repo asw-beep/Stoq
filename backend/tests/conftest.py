@@ -13,10 +13,16 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from api.main import app
+from core.rate_limit import limiter
 from db.base import Base, import_models
 from db.session import get_db
 
 import_models()
+
+# Rate limiting is off by default for the suite so existing tests that loop
+# requests (login attempts, repeated list calls) don't trip per-IP limits. The
+# dedicated rate-limit test re-enables it locally (see test_rate_limit.py).
+limiter.enabled = False
 
 
 @pytest.fixture()

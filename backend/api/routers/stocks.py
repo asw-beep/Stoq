@@ -3,7 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from api.schemas import StockDetailOut, StockOut
+from api.pagination import Pagination, pagination_params
+from api.schemas import Page, StockDetailOut, StockOut
 from auth.dependencies import get_current_user
 from core.validation import normalize_symbol
 from db.session import get_db
@@ -27,13 +28,23 @@ def valid_symbol(symbol: str) -> str:
         ) from None
 
 
-@router.get("", response_model=list[StockOut])
+@router.get("", response_model=Page[StockOut])
 def list_stocks(
+    page: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[StockOut]:
+) -> Page[StockOut]:
     repo = StockRepository(db)
-    return [StockOut.model_validate(s) for s in repo.list_stocks()]
+    items = [
+        StockOut.model_validate(s)
+        for s in repo.list_stocks(limit=page.limit, offset=page.offset)
+    ]
+    return Page(
+        items=items,
+        total=repo.count_stocks(),
+        limit=page.limit,
+        offset=page.offset,
+    )
 
 
 @router.get("/{symbol}", response_model=StockDetailOut)

@@ -5,9 +5,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from api.pagination import Pagination, pagination_params
 from api.schemas import (
     HoldingCreate,
     HoldingOut,
+    Page,
     PortfolioCreate,
     PortfolioDetailOut,
     PortfolioSummaryOut,
@@ -39,18 +41,25 @@ def create_portfolio(
     return PortfolioSummaryOut(id=portfolio.id, name=portfolio.name, holding_count=0)
 
 
-@router.get("", response_model=list[PortfolioSummaryOut])
+@router.get("", response_model=Page[PortfolioSummaryOut])
 def list_portfolios(
+    page: Pagination = Depends(pagination_params),
     current_user: User = Depends(get_current_user),
     service: PortfolioService = Depends(get_service),
-) -> list[PortfolioSummaryOut]:
-    portfolios = service.list_for_user(current_user.id)
-    return [
-        PortfolioSummaryOut(
-            id=p.id, name=p.name, holding_count=len(p.holdings)
-        )
+) -> Page[PortfolioSummaryOut]:
+    portfolios = service.list_for_user(
+        current_user.id, limit=page.limit, offset=page.offset
+    )
+    items = [
+        PortfolioSummaryOut(id=p.id, name=p.name, holding_count=len(p.holdings))
         for p in portfolios
     ]
+    return Page(
+        items=items,
+        total=service.count_for_user(current_user.id),
+        limit=page.limit,
+        offset=page.offset,
+    )
 
 
 @router.get("/{portfolio_id}", response_model=PortfolioDetailOut)
@@ -62,7 +71,9 @@ def get_portfolio(
     try:
         val = service.get_valued(current_user.id, portfolio_id)
     except PortfolioNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found"
+        ) from None
 
     holdings_out = [
         HoldingOut(
@@ -96,7 +107,9 @@ def delete_portfolio(
     try:
         service.delete(current_user.id, portfolio_id)
     except PortfolioNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found"
+        ) from None
 
 
 @router.post(
@@ -119,11 +132,15 @@ def add_holding(
             payload.purchase_price,
         )
     except PortfolioNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found"
+        ) from None
     except UnknownStockError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from None
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from None
 
     repo = service.repo
     current_price = repo.latest_close(holding.stock_id)
@@ -158,6 +175,10 @@ def remove_holding(
     try:
         service.remove_holding(current_user.id, portfolio_id, holding_id)
     except PortfolioNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found"
+        ) from None
     except HoldingNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Holding not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Holding not found"
+        ) from None

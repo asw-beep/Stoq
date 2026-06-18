@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from models.portfolio import Holding, Portfolio
@@ -21,14 +21,28 @@ class PortfolioRepository:
         self.db.flush()
         return portfolio
 
-    def list_for_user(self, user_id: int) -> list[Portfolio]:
-        return list(
-            self.db.scalars(
-                select(Portfolio)
+    def list_for_user(
+        self, user_id: int, limit: int | None = None, offset: int = 0
+    ) -> list[Portfolio]:
+        stmt = (
+            select(Portfolio)
+            .where(Portfolio.user_id == user_id)
+            .order_by(Portfolio.id)
+            .offset(offset)
+            .options(selectinload(Portfolio.holdings).selectinload(Holding.stock))
+        )
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return list(self.db.scalars(stmt))
+
+    def count_for_user(self, user_id: int) -> int:
+        return (
+            self.db.scalar(
+                select(func.count())
+                .select_from(Portfolio)
                 .where(Portfolio.user_id == user_id)
-                .order_by(Portfolio.id)
-                .options(selectinload(Portfolio.holdings).selectinload(Holding.stock))
             )
+            or 0
         )
 
     def get(self, portfolio_id: int) -> Portfolio | None:

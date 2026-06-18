@@ -1,6 +1,6 @@
 """Authentication endpoints: register, login, and current-user lookup."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from auth.service import (
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
 )
+from core.rate_limit import limiter
 from db.session import get_db
 from models.user import User
 
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
+@limiter.limit("3/minute")
+def register(request: Request, payload: UserCreate, db: Session = Depends(get_db)) -> User:
     service = AuthService(db)
     try:
         user = service.register(payload.email, payload.password)
@@ -32,8 +34,11 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
 
 
 @router.post("/login", response_model=TokenOut)
+@limiter.limit("5/minute")
 def login(
-    form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+    request: Request,
+    form: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
 ) -> TokenOut:
     """OAuth2 password flow: ``username`` is the email. Returns a bearer token."""
     service = AuthService(db)

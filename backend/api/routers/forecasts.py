@@ -7,12 +7,13 @@ auth dependency, exactly like the stocks router.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from api.routers.stocks import valid_symbol
 from api.schemas import ForecastOut, ForecastRequest
 from auth.dependencies import get_current_user
+from core.rate_limit import limiter
 from db.session import get_db
 from forecasting.models.base import Forecaster
 from forecasting.models.factory import SUPPORTED_MODELS, build_forecaster
@@ -37,7 +38,9 @@ def get_forecaster(model: str = "prophet") -> Forecaster:
 
 
 @router.post("", response_model=list[ForecastOut], status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 def create_forecast(
+    request: Request,
     payload: ForecastRequest,
     symbol: str = Depends(valid_symbol),
     current_user: User = Depends(get_current_user),
