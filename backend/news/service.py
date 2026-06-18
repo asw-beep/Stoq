@@ -71,7 +71,7 @@ class NewsService:
         # Batch-score all new articles in one FinBERT forward pass.
         if new_texts:
             scores = score_batch(new_texts)
-            for article, result in zip(new_articles, scores):
+            for article, result in zip(new_articles, scores, strict=True):
                 self.repo.set_sentiment(article.id, result)
 
         self.db.commit()

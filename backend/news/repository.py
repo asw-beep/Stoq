@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -27,7 +27,7 @@ class NewsRepository:
             return existing, False
 
         published = (
-            datetime.fromtimestamp(raw.published_at, tz=timezone.utc)
+            datetime.fromtimestamp(raw.published_at, tz=UTC)
             if raw.published_at
             else None
         )

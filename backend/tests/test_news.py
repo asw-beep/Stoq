@@ -7,7 +7,7 @@ Docker image), so every test that would trigger FinBERT patches
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,7 +23,6 @@ from news.service import (
     UnknownStockError,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
@@ -34,7 +33,7 @@ def _raw(title="AAPL rallies", url="https://news.example.com/1", ts=None) -> Raw
         summary="Apple shares rose sharply.",
         source="Reuters",
         url=url,
-        published_at=ts or int(datetime(2026, 1, 1, tzinfo=timezone.utc).timestamp()),
+        published_at=ts or int(datetime(2026, 1, 1, tzinfo=UTC).timestamp()),
     )
 
 
@@ -109,7 +108,7 @@ class TestNewsRepository:
         assert db_session.query(SentimentScore).first().sentiment == "negative"
 
     def test_list_for_stock_newest_first(self, db_session, stock, news_repo):
-        base_ts = int(datetime(2026, 1, 1, tzinfo=timezone.utc).timestamp())
+        base_ts = int(datetime(2026, 1, 1, tzinfo=UTC).timestamp())
         for i in range(3):
             news_repo.upsert_article(
                 stock.id,
@@ -216,7 +215,9 @@ class TestNewsAPI:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    def test_get_news_returns_articles_with_sentiment(self, client, auth_headers, db_session, stock):
+    def test_get_news_returns_articles_with_sentiment(
+        self, client, auth_headers, db_session, stock
+    ):
         self._seed_article(db_session, stock, sentiment="negative")
         resp = client.get("/stocks/AAPL/news", headers=auth_headers)
         assert resp.status_code == 200
@@ -237,10 +238,8 @@ class TestNewsAPI:
         mock_provider = MagicMock()
         mock_provider.fetch.return_value = [_raw()]
 
-        from api.routers import news as news_router
-        from news.provider import FinnhubProvider
-
         from api.main import app
+        from api.routers import news as news_router
         app.dependency_overrides[news_router.get_provider] = lambda: mock_provider
 
         try:
@@ -259,8 +258,8 @@ class TestNewsAPI:
         assert data["articles"][0]["sentiment"]["sentiment"] == "positive"
 
     def test_post_news_no_api_key_503(self, client, auth_headers, stock):
-        from api.routers import news as news_router
         from api.main import app
+        from api.routers import news as news_router
         app.dependency_overrides[news_router.get_provider] = lambda: None
 
         try:
@@ -271,8 +270,8 @@ class TestNewsAPI:
         assert resp.status_code == 503
 
     def test_post_news_unknown_stock_404(self, client, auth_headers):
-        from api.routers import news as news_router
         from api.main import app
+        from api.routers import news as news_router
         mock_provider = MagicMock()
         mock_provider.fetch.return_value = []
         app.dependency_overrides[news_router.get_provider] = lambda: mock_provider
@@ -300,8 +299,8 @@ class TestNewsAPI:
         mock_provider = MagicMock()
         mock_provider.fetch.return_value = []
 
-        from api.routers import news as news_router
         from api.main import app
+        from api.routers import news as news_router
         app.dependency_overrides[news_router.get_provider] = lambda: mock_provider
 
         try:

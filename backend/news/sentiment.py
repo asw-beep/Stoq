@@ -20,10 +20,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _MODEL_ID = "ProsusAI/finbert"
-_pipeline: "Pipeline | None" = None
+_pipeline: Pipeline | None = None
 
 
-def _get_pipeline() -> "Pipeline":
+def _get_pipeline() -> Pipeline:
     global _pipeline
     if _pipeline is None:
         from transformers import pipeline
@@ -59,4 +59,7 @@ def score_batch(texts: list[str]) -> list[SentimentResult]:
     pipe = _get_pipeline()
     truncated = [t[:512] for t in texts]
     results = pipe(truncated, truncation=True, batch_size=16)
-    return [SentimentResult(label=r[0]["label"].lower(), score=round(r[0]["score"], 4)) for r in results]
+    return [
+        SentimentResult(label=r[0]["label"].lower(), score=round(r[0]["score"], 4))
+        for r in results
+    ]
