@@ -1,0 +1,36 @@
+# Development overrides — automatically merged with docker-compose.yml by
+# Docker Compose. NOT used in production (Compose ignores this file when you
+# pass -f explicitly, e.g. in CI or on the server).
+#
+# What this gives you:
+#   backend  → uvicorn --reload: edit a .py file, change is live in ~1s
+#   frontend → next dev + HMR:  edit a component, browser updates instantly
+#
+# Full rebuild (docker compose up --build) is only needed when you change
+# pyproject.toml, package.json, or a Dockerfile.
+
+services:
+  backend:
+    volumes:
+      # Bind-mount source so uvicorn --reload sees edits without a rebuild.
+      - ./backend:/app
+      # Re-use the hf_cache volume declared in the base file.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  frontend:
+    build:
+      context: ./frontend
+      # Target the dev stage (npm run dev) instead of the production runner.
+      target: dev
+    volumes:
+      # Full source mount so HMR picks up all file changes.
+      - ./frontend:/app
+      # Anonymous volume keeps the container's node_modules intact —
+      # prevents the host directory (possibly empty or different OS) from
+      # shadowing the packages installed during the image build.
+      - /app/node_modules
+    environment:
+      BACKEND_URL: http://backend:8000
+      WATCHPACK_POLLING: "true"

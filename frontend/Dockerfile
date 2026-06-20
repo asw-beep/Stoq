@@ -8,6 +8,18 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# ── dev ───────────────────────────────────────────────────────────────────────
+# Used by docker-compose.override.yml. Source is bind-mounted at runtime so
+# Next.js HMR picks up edits without a rebuild.
+FROM deps AS dev
+ENV NEXT_TELEMETRY_DISABLED=1
+# WATCHPACK_POLLING forces filesystem polling — required on Windows/WSL2 where
+# inotify events don't propagate through the Docker volume layer.
+ENV WATCHPACK_POLLING=true
+COPY . .
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
 # ── builder ────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 WORKDIR /app
