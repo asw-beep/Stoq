@@ -54,6 +54,18 @@ services:
       # FinBERT model cache: ~500 MB downloaded on first use, reused on rebuild.
       - hf_cache:/hf_cache
 
+  frontend:
+    build: ./frontend
+    container_name: stock_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # Reaches the backend over the internal Compose network.
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+
 volumes:
   pgdata:
   hf_cache:
