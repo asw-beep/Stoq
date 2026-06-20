@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
@@ -68,3 +70,22 @@ class StockRepository:
             .select_from(HistoricalPrice)
             .where(HistoricalPrice.stock_id == stock_id)
         ) or 0
+
+    def list_prices(
+        self, stock_id: int, since: date | None = None
+    ) -> list[HistoricalPrice]:
+        """Historical bars for a stock, oldest first (chart-friendly order)."""
+        stmt = select(HistoricalPrice).where(HistoricalPrice.stock_id == stock_id)
+        if since is not None:
+            stmt = stmt.where(HistoricalPrice.date >= since)
+        return list(self.db.scalars(stmt.order_by(HistoricalPrice.date)))
+
+    def latest_two_closes(self, stock_id: int) -> list[float]:
+        """The two most recent closes (newest first) for change computation."""
+        rows = self.db.scalars(
+            select(HistoricalPrice.close)
+            .where(HistoricalPrice.stock_id == stock_id)
+            .order_by(HistoricalPrice.date.desc())
+            .limit(2)
+        )
+        return [float(r) for r in rows]

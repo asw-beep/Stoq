@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from models.user import User
@@ -19,6 +19,13 @@ class UserRepository:
 
     def get_by_email(self, email: str) -> User | None:
         return self.db.scalar(select(User).where(User.email == email))
+
+    def list_users(self, *, limit: int, offset: int) -> list[User]:
+        stmt = select(User).order_by(User.id).limit(limit).offset(offset)
+        return list(self.db.scalars(stmt))
+
+    def count_users(self) -> int:
+        return self.db.scalar(select(func.count()).select_from(User)) or 0
 
     def create(self, email: str, password_hash: str, role: str = "user") -> User:
         user = User(email=email, password_hash=password_hash, role=role)

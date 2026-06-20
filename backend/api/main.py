@@ -15,7 +15,16 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from api.routers import auth, forecasts, health, news, portfolios, stocks
+from api.routers import (
+    admin,
+    auth,
+    forecasts,
+    health,
+    market,
+    news,
+    portfolios,
+    stocks,
+)
 from core.config import Settings, get_settings
 from core.rate_limit import limiter
 
@@ -77,6 +86,8 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(forecasts.router)
     app.include_router(portfolios.router)
     app.include_router(news.router)
+    app.include_router(market.router)
+    app.include_router(admin.router)
 
     @app.get("/", tags=["root"])
     def root() -> dict[str, str]:
