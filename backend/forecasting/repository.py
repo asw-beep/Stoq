@@ -71,8 +71,8 @@ class ForecastRepository:
                 forecast_date=forecast_date,
                 target_date=p.target_date,
                 model=model,
-                predicted_price=p.predicted_price,
-                confidence=p.confidence,
+                direction=p.direction,
+                probability=p.probability,
             )
             for p in predictions
         ]

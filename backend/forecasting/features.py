@@ -83,4 +83,18 @@ def build_feature_frame(prices: pd.DataFrame) -> pd.DataFrame:
     out["rsi_14"] = rsi(close, 14)
     out = out.join(macd(close))
     out["volatility_20"] = volatility(close, 20)
+
+    # Momentum: price returns over multiple lookbacks
+    out["return_1d"] = close.pct_change(1)
+    out["return_5d"] = close.pct_change(5)
+    out["return_10d"] = close.pct_change(10)
+
+    # Volume anomaly: z-score relative to 20-day rolling baseline
+    vol_mean = out["volume"].rolling(window=20, min_periods=20).mean()
+    vol_std = out["volume"].rolling(window=20, min_periods=20).std()
+    out["volume_zscore"] = (out["volume"] - vol_mean) / vol_std
+
+    # Normalised price position relative to trend (ratio, not raw difference)
+    out["close_to_sma20"] = close / out["sma_20"]
+
     return out

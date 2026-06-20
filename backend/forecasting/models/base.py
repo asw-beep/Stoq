@@ -16,26 +16,26 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class Prediction:
-    """One predicted price for a future target date.
+    """Directional forecast for a future target date.
 
-    ``confidence`` is an optional model-supplied score in [0, 1] (e.g. derived
-    from a prediction interval); ``None`` when the model does not provide one.
+    ``direction`` is 1 (price expected to rise) or 0 (expected to fall).
+    ``probability`` is the model's confidence in that direction, in [0, 1].
     """
 
     target_date: date
-    predicted_price: float
-    confidence: float | None = None
+    direction: int      # 1 = up, 0 = down
+    probability: float  # confidence in the predicted direction
 
 
 @runtime_checkable
 class Forecaster(Protocol):
     """Interface every forecasting model must implement."""
 
-    #: Stable identifier persisted on each Forecast row (e.g. "prophet").
+    #: Stable identifier persisted on each Forecast row (e.g. "xgboost").
     name: str
 
     def predict(self, prices: pd.DataFrame, horizons: list[int]) -> list[Prediction]:
-        """Fit on ``prices`` and predict the close price ``h`` trading days ahead.
+        """Fit on ``prices`` and predict direction ``h`` trading days ahead.
 
         ``prices`` is a date-indexed frame with at least a ``close`` column.
         ``horizons`` are day offsets (e.g. [1, 7, 30]). Returns one Prediction

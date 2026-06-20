@@ -9,15 +9,11 @@ from __future__ import annotations
 
 from forecasting.models.base import Forecaster
 
-SUPPORTED_MODELS = ("prophet", "xgboost")
+SUPPORTED_MODELS = ("xgboost",)
 
 
-def build_forecaster(name: str = "prophet") -> Forecaster:
+def build_forecaster(name: str = "xgboost") -> Forecaster:
     """Return a Forecaster for ``name``; raises ValueError if unknown."""
-    if name == "prophet":
-        from forecasting.models.prophet_model import ProphetForecaster
-
-        return ProphetForecaster()
     if name == "xgboost":
         from forecasting.models.xgboost_model import XGBoostForecaster
 

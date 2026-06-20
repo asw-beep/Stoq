@@ -1,7 +1,8 @@
-"""Forecast evaluation metrics (per docs/ML_Design.md): RMSE, MAE, MAPE.
+"""Classification metrics for directional forecasting.
 
-Pure functions over array-likes of equal length. Kept dependency-light (numpy
-only) and model-agnostic so any forecaster can be backtested the same way.
+Replaces the old RMSE/MAE/MAPE suite — price-error metrics are statistically
+misleading for stocks (arXiv 2101.10942) and can't represent the directional
+signal investors actually care about.
 """
 
 from __future__ import annotations
@@ -13,15 +14,22 @@ import numpy as np
 
 
 @dataclass(frozen=True)
-class Metrics:
-    rmse: float
-    mae: float
-    mape: float
+class ClassificationMetrics:
+    accuracy: float    # fraction of correct direction calls
+    precision: float   # of predicted "up", fraction that were actually up
+    recall: float      # of actual "up" days, fraction the model caught
+    n_samples: int
+
+    def __str__(self) -> str:
+        return (
+            f"accuracy={self.accuracy:.3f} precision={self.precision:.3f} "
+            f"recall={self.recall:.3f} n={self.n_samples}"
+        )
 
 
-def _as_pair(y_true: Sequence[float], y_pred: Sequence[float]) -> tuple[np.ndarray, np.ndarray]:
-    a = np.asarray(y_true, dtype=float)
-    b = np.asarray(y_pred, dtype=float)
+def _validate(y_true: Sequence[int], y_pred: Sequence[int]) -> tuple[np.ndarray, np.ndarray]:
+    a = np.asarray(y_true, dtype=int)
+    b = np.asarray(y_pred, dtype=int)
     if a.shape != b.shape:
         raise ValueError(f"length mismatch: y_true={a.shape} y_pred={b.shape}")
     if a.size == 0:
@@ -29,25 +37,30 @@ def _as_pair(y_true: Sequence[float], y_pred: Sequence[float]) -> tuple[np.ndarr
     return a, b
 
 
-def rmse(y_true: Sequence[float], y_pred: Sequence[float]) -> float:
-    a, b = _as_pair(y_true, y_pred)
-    return float(np.sqrt(np.mean((a - b) ** 2)))
+def accuracy(y_true: Sequence[int], y_pred: Sequence[int]) -> float:
+    a, b = _validate(y_true, y_pred)
+    return float(np.mean(a == b))
 
 
-def mae(y_true: Sequence[float], y_pred: Sequence[float]) -> float:
-    a, b = _as_pair(y_true, y_pred)
-    return float(np.mean(np.abs(a - b)))
+def precision_recall(
+    y_true: Sequence[int], y_pred: Sequence[int]
+) -> tuple[float, float]:
+    """Precision and recall for the positive (up) class."""
+    a, b = _validate(y_true, y_pred)
+    tp = int(np.sum((b == 1) & (a == 1)))
+    fp = int(np.sum((b == 1) & (a == 0)))
+    fn = int(np.sum((b == 0) & (a == 1)))
+    prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    return prec, rec
 
 
-def mape(y_true: Sequence[float], y_pred: Sequence[float]) -> float:
-    """Mean absolute percentage error (%). Ignores points where y_true == 0."""
-    a, b = _as_pair(y_true, y_pred)
-    mask = a != 0
-    if not mask.any():
-        raise ValueError("MAPE undefined: all true values are zero")
-    return float(np.mean(np.abs((a[mask] - b[mask]) / a[mask])) * 100.0)
-
-
-def evaluate(y_true: Sequence[float], y_pred: Sequence[float]) -> Metrics:
-    """Compute all three metrics at once."""
-    return Metrics(rmse=rmse(y_true, y_pred), mae=mae(y_true, y_pred), mape=mape(y_true, y_pred))
+def evaluate(y_true: Sequence[int], y_pred: Sequence[int]) -> ClassificationMetrics:
+    a, b = _validate(y_true, y_pred)
+    prec, rec = precision_recall(a, b)
+    return ClassificationMetrics(
+        accuracy=accuracy(a, b),
+        precision=prec,
+        recall=rec,
+        n_samples=len(a),
+    )

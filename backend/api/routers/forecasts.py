@@ -23,7 +23,7 @@ from models.user import User
 router = APIRouter(prefix="/stocks/{symbol}/forecasts", tags=["forecasts"])
 
 
-def get_forecaster(model: str = "prophet") -> Forecaster:
+def get_forecaster(model: str = "xgboost") -> Forecaster:
     """Resolve the requested forecasting model (overridable in tests via DI).
 
     ``model`` is a query param; unknown names 422 rather than 500.
