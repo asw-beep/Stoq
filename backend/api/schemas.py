@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -34,6 +34,17 @@ class UserOut(BaseModel):
     role: str
 
 
+class AdminUserOut(BaseModel):
+    """User row as exposed to admins. Never includes ``password_hash``."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: EmailStr
+    role: str
+    created_at: datetime
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -52,6 +63,27 @@ class StockDetailOut(StockOut):
     price_count: int = 0
 
 
+class PriceBarOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    date: date
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+
+
+class MarketOverviewItem(BaseModel):
+    symbol: str
+    name: str | None = None
+    sector: str | None = None
+    latest_close: float | None = None
+    previous_close: float | None = None
+    change: float | None = None
+    change_pct: float | None = None
+
+
 class ForecastRequest(BaseModel):
     # Day offsets to predict (default 1/7/30 per ML_Design). Bounded to keep
     # training cheap and the request synchronous (ADR-0009).
@@ -68,8 +100,10 @@ class ForecastOut(BaseModel):
     forecast_date: date
     target_date: date
     model: str
-    predicted_price: float
-    confidence: float | None = None
+    direction: int | None = None        # 1 = up, 0 = down
+    probability: float | None = None    # model confidence in that direction
+    predicted_price: float | None = None  # legacy regression field
+    confidence: float | None = None       # legacy regression field
 
 
 # ---- portfolio ----
@@ -130,7 +164,7 @@ class NewsArticleOut(BaseModel):
     title: str
     source: str | None = None
     url: str | None = None
-    published_at: date | None = None
+    published_at: datetime | None = None
     sentiment: SentimentOut | None = None
 
 

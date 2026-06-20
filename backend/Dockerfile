@@ -21,8 +21,11 @@ RUN uv pip install --system --no-cache .
 COPY . .
 
 # Run as an unprivileged user — never as root (W-7 / HIGH-005).
+# Create /hf_cache here (as root) so the named-volume mount inherits the
+# correct ownership rather than being initialised by Docker as root:root.
 RUN useradd --create-home --uid 10001 appuser \
-    && chown -R appuser:appuser /app
+    && mkdir -p /hf_cache \
+    && chown -R appuser:appuser /app /hf_cache
 USER appuser
 
 EXPOSE 8000

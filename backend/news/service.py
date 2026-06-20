@@ -55,6 +55,25 @@ class NewsService:
         raw_articles = self.provider.fetch(symbol, days=days)
         logger.info("Finnhub returned %d articles for %s", len(raw_articles), symbol)
 
+        # Finnhub's free-tier company_news endpoint returns loosely tagged
+        # articles that often mention unrelated companies. Keep only articles
+        # where the symbol or a meaningful word of the company name appears in
+        # the headline or summary.
+        _NOISE = {"inc", "inc.", "corp", "corp.", "ltd", "ltd.", "plc",
+                  "llc", "co.", "the", "and", "group", "holdings", "company"}
+        name_tokens = {
+            t.lower() for t in stock.name.split()
+            if len(t) > 2 and t.lower() not in _NOISE
+        }
+        name_tokens.add(symbol.lower())
+
+        def _relevant(article: object) -> bool:
+            haystack = (article.title or "").lower()
+            return any(tok in haystack for tok in name_tokens)
+
+        raw_articles = [a for a in raw_articles if _relevant(a)]
+        logger.info("%d articles remain after relevance filter", len(raw_articles))
+
         new_articles: list[NewsArticle] = []
         new_texts: list[str] = []
 
