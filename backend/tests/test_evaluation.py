@@ -1,4 +1,4 @@
-"""Evaluation-metric unit tests."""
+"""Classification evaluation metric unit tests."""
 
 from __future__ import annotations
 
@@ -7,38 +7,49 @@ import pytest
 from forecasting import evaluation
 
 
-def test_perfect_prediction_is_zero_error():
-    y = [10.0, 20.0, 30.0]
+def test_perfect_accuracy():
+    y = [1, 0, 1, 0, 1]
     m = evaluation.evaluate(y, y)
-    assert m.rmse == pytest.approx(0.0)
-    assert m.mae == pytest.approx(0.0)
-    assert m.mape == pytest.approx(0.0)
+    assert m.accuracy == pytest.approx(1.0)
+    assert m.precision == pytest.approx(1.0)
+    assert m.recall == pytest.approx(1.0)
+    assert m.n_samples == 5
 
 
 def test_known_values():
-    y_true = [100.0, 200.0]
-    y_pred = [110.0, 180.0]  # errors: +10, -20
-    assert evaluation.mae(y_true, y_pred) == pytest.approx(15.0)
-    assert evaluation.rmse(y_true, y_pred) == pytest.approx((250.0) ** 0.5)
-    # |10/100| + |20/200| = 0.10 + 0.10 -> mean 0.10 -> 10%
-    assert evaluation.mape(y_true, y_pred) == pytest.approx(10.0)
+    # y_true=[1,0,1,1] y_pred=[1,1,1,0]
+    # correct at idx 0,2 → accuracy=0.5
+    # TP=2 (idx 0,2), FP=1 (idx 1), FN=1 (idx 3)
+    # precision=2/3, recall=2/3
+    y_true = [1, 0, 1, 1]
+    y_pred = [1, 1, 1, 0]
+    m = evaluation.evaluate(y_true, y_pred)
+    assert m.accuracy == pytest.approx(0.5)
+    assert m.precision == pytest.approx(2 / 3)
+    assert m.recall == pytest.approx(2 / 3)
+
+
+def test_all_wrong():
+    y_true = [1, 1, 0, 0]
+    y_pred = [0, 0, 1, 1]
+    m = evaluation.evaluate(y_true, y_pred)
+    assert m.accuracy == pytest.approx(0.0)
 
 
 def test_length_mismatch_raises():
     with pytest.raises(ValueError):
-        evaluation.rmse([1.0, 2.0], [1.0])
+        evaluation.accuracy([1, 0], [1])
 
 
 def test_empty_raises():
     with pytest.raises(ValueError):
-        evaluation.mae([], [])
+        evaluation.evaluate([], [])
 
 
-def test_mape_skips_zero_true_values():
-    # Only the non-zero true value contributes: |(5-4)/5| = 0.2 -> 20%
-    assert evaluation.mape([0.0, 5.0], [1.0, 4.0]) == pytest.approx(20.0)
-
-
-def test_mape_all_zero_true_raises():
-    with pytest.raises(ValueError):
-        evaluation.mape([0.0, 0.0], [1.0, 2.0])
+def test_no_positive_predictions():
+    # All predictions are 0 → precision undefined → 0.0
+    y_true = [1, 1, 0]
+    y_pred = [0, 0, 0]
+    m = evaluation.evaluate(y_true, y_pred)
+    assert m.precision == pytest.approx(0.0)
+    assert m.recall == pytest.approx(0.0)

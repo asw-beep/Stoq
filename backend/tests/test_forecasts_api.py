@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pandas as pd
-import pytest
+import pytest  # noqa: F401 — used for pytest.approx
 
 from api.main import app
 from api.routers.forecasts import get_forecaster
@@ -18,7 +18,7 @@ class StubForecaster:
     def predict(self, prices: pd.DataFrame, horizons: list[int]) -> list[Prediction]:
         last = pd.Timestamp(prices.index[-1]).date()
         return [
-            Prediction(target_date=last + timedelta(days=h), predicted_price=123.45, confidence=0.8)
+            Prediction(target_date=last + timedelta(days=h), direction=1, probability=0.68)
             for h in horizons
         ]
 
@@ -56,8 +56,8 @@ def test_create_and_read_forecasts(client, auth_headers, stub_forecaster, seed_s
     body = created.json()
     assert len(body) == 3
     assert body[0]["model"] == "stub"
-    assert body[0]["predicted_price"] == 123.45
-    assert body[0]["confidence"] == 0.8
+    assert body[0]["direction"] == 1
+    assert body[0]["probability"] == pytest.approx(0.68)
 
     got = client.get("/stocks/AAPL/forecasts", headers=auth_headers)
     assert got.status_code == 200

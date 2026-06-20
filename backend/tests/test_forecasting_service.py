@@ -13,7 +13,7 @@ from forecasting.service import ForecastingService, UnknownStockError
 
 
 class StubForecaster:
-    """Deterministic Forecaster: predicts a flat price per horizon."""
+    """Deterministic Forecaster: returns a fixed directional signal per horizon."""
 
     name = "stub"
 
@@ -24,7 +24,7 @@ class StubForecaster:
         self.seen_rows = len(prices)
         last = pd.Timestamp(prices.index[-1]).date()
         return [
-            Prediction(target_date=last + timedelta(days=h), predicted_price=42.0, confidence=0.9)
+            Prediction(target_date=last + timedelta(days=h), direction=1, probability=0.75)
             for h in horizons
         ]
 
@@ -41,8 +41,9 @@ def test_generate_persists_predictions(db_session, seed_stock):
     assert result.forecast_date == date.today()
     assert len(result.forecasts) == 3
     assert forecaster.seen_rows == 40
-    assert {f.target_date for f in result.forecasts}  # distinct target dates
-    assert all(float(f.predicted_price) == 42.0 for f in result.forecasts)
+    assert len({f.target_date for f in result.forecasts}) == 3
+    assert all(f.direction == 1 for f in result.forecasts)
+    assert all(float(f.probability) == pytest.approx(0.75) for f in result.forecasts)
 
 
 def test_generate_unknown_symbol_raises(db_session):
@@ -59,7 +60,7 @@ def test_generate_rerun_replaces_same_day(db_session, seed_stock):
     service.generate("AAPL", horizons=[1, 7, 30])  # same day, more horizons
 
     rows = service.latest("AAPL")
-    assert len(rows) == 3  # replaced, not appended (no duplicate-day rows)
+    assert len(rows) == 3  # replaced, not appended
 
 
 def test_latest_returns_most_recent_run(db_session, seed_stock):
@@ -68,14 +69,15 @@ def test_latest_returns_most_recent_run(db_session, seed_stock):
     # Older run (yesterday) and newer run (today).
     repo.replace_forecasts(
         stock.id, "stub", date.today() - timedelta(days=1),
-        [Prediction(date.today(), 1.0, None)],
+        [Prediction(date.today(), direction=0, probability=0.6)],
     )
     repo.replace_forecasts(
         stock.id, "stub", date.today(),
-        [Prediction(date.today() + timedelta(days=1), 2.0, None)],
+        [Prediction(date.today() + timedelta(days=1), direction=1, probability=0.8)],
     )
     db_session.commit()
 
     rows = ForecastingService(db_session, StubForecaster()).latest("AAPL")
     assert len(rows) == 1
-    assert float(rows[0].predicted_price) == 2.0
+    assert rows[0].direction == 1
+    assert float(rows[0].probability) == pytest.approx(0.8)
