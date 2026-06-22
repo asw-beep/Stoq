@@ -77,7 +77,14 @@ class ForecastingService:
         )
         predictions = self.forecaster.predict(prices, horizons)
 
-        run_date = date.today()
+        # The forecast origin is the as-of date of the data the model saw — the
+        # last observed price — not the wall-clock run date. target_date is
+        # computed as ``last_date + horizon``; anchoring forecast_date to the
+        # same point keeps every target strictly in the future of its forecast
+        # (gap == horizon). Wall-clock run time is preserved in created_at.
+        run_date = prices.index[-1]
+        if hasattr(run_date, "date"):  # pandas Timestamp -> datetime.date
+            run_date = run_date.date()
         created = self.repo.replace_forecasts(
             stock.id, self.forecaster.name, run_date, predictions
         )

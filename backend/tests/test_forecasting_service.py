@@ -36,12 +36,16 @@ def test_generate_persists_predictions(db_session, seed_stock):
 
     result = service.generate("aapl", horizons=[1, 7, 30])
 
+    # Forecast origin is the last observed price date, not the wall-clock run
+    # date, so every target lands strictly in the future of the forecast.
+    last_observed = date(2024, 1, 1) + timedelta(days=39)  # 40 seeded bars
     assert result.symbol == "AAPL"
     assert result.model == "stub"
-    assert result.forecast_date == date.today()
+    assert result.forecast_date == last_observed
     assert len(result.forecasts) == 3
     assert forecaster.seen_rows == 40
     assert len({f.target_date for f in result.forecasts}) == 3
+    assert all(f.target_date > f.forecast_date for f in result.forecasts)
     assert all(f.direction == 1 for f in result.forecasts)
     assert all(float(f.probability) == pytest.approx(0.75) for f in result.forecasts)
 
