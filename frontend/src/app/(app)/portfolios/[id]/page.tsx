@@ -44,6 +44,7 @@ import { changeColor, fmtCurrency } from "@/lib/format";
 import {
   useAddHolding,
   usePortfolio,
+  usePortfolioAnalytics,
   useRemoveHolding,
   useStocks,
 } from "@/lib/queries";
@@ -60,6 +61,7 @@ export default function PortfolioDetailPage() {
   const id = Number(params.id);
 
   const { data, isLoading, isError, error } = usePortfolio(id);
+  const { data: analytics } = usePortfolioAnalytics(id);
   const { data: stocksPage } = useStocks(200);
   const addHolding = useAddHolding(id);
   const removeHolding = useRemoveHolding(id);
@@ -215,9 +217,58 @@ export default function PortfolioDetailPage() {
         <StatCard
           label="Total gain / loss"
           value={fmtCurrency(data.total_gain_loss)}
+          sub={
+            analytics?.return_pct != null
+              ? `${analytics.return_pct >= 0 ? "+" : ""}${analytics.return_pct.toFixed(2)}%`
+              : undefined
+          }
           valueClassName={changeColor(data.total_gain_loss)}
         />
       </div>
+
+      {analytics && (
+        <div className="grid gap-4 sm:grid-cols-4">
+          <StatCard
+            label="Ann. return"
+            value={
+              analytics.annualized_return != null
+                ? `${analytics.annualized_return >= 0 ? "+" : ""}${analytics.annualized_return.toFixed(2)}%`
+                : "—"
+            }
+            valueClassName={changeColor(analytics.annualized_return)}
+          />
+          <StatCard
+            label="Ann. volatility"
+            value={
+              analytics.annualized_volatility != null
+                ? `${analytics.annualized_volatility.toFixed(2)}%`
+                : "—"
+            }
+          />
+          <StatCard
+            label="Sharpe ratio"
+            value={
+              analytics.sharpe_ratio != null
+                ? analytics.sharpe_ratio.toFixed(2)
+                : "—"
+            }
+            sub="Risk-free = 0%"
+          />
+          <StatCard
+            label="Max drawdown"
+            value={
+              analytics.max_drawdown != null
+                ? `${analytics.max_drawdown.toFixed(2)}%`
+                : "—"
+            }
+            valueClassName={
+              analytics.max_drawdown != null && analytics.max_drawdown > 0
+                ? "text-red-600"
+                : undefined
+            }
+          />
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  BarChart2,
   LineChart,
   LogOut,
+  Newspaper,
   Shield,
   TrendingUp,
   User as UserIcon,
@@ -28,6 +30,8 @@ import { useLogout, useMe } from "@/lib/queries";
 
 const NAV = [
   { href: "/", label: "Market", icon: LineChart },
+  { href: "/forecast", label: "Forecast", icon: BarChart2 },
+  { href: "/sentiment", label: "Sentiment", icon: Newspaper },
   { href: "/portfolios", label: "Portfolios", icon: Wallet },
   { href: "/account", label: "Account", icon: UserIcon },
 ];

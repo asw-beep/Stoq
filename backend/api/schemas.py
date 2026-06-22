@@ -176,6 +176,33 @@ class NewsIngestOut(BaseModel):
     articles: list[NewsArticleOut]
 
 
+class MarketSignalItem(BaseModel):
+    symbol: str
+    name: str | None = None
+    model: str
+    direction: int | None = None
+    probability: float | None = None
+    forecast_date: date
+    target_date: date
+
+
+class MarketSentimentItem(BaseModel):
+    symbol: str
+    name: str | None = None
+    positive: int = 0
+    negative: int = 0
+    neutral: int = 0
+    total: int = 0
+
+
+class PortfolioAnalyticsOut(BaseModel):
+    return_pct: float | None = None
+    annualized_return: float | None = None
+    annualized_volatility: float | None = None
+    sharpe_ratio: float | None = None
+    max_drawdown: float | None = None
+
+
 class HealthOut(BaseModel):
     # `environment` is deliberately NOT exposed — it discloses deployment posture
     # to unauthenticated callers (W-5 / HIGH-002).

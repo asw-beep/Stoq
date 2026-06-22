@@ -13,8 +13,11 @@ import type {
   ForecastModel,
   Holding,
   MarketOverviewItem,
+  MarketSentiment,
+  MarketSignal,
   NewsArticle,
   Page,
+  PortfolioAnalytics,
   PortfolioDetail,
   PortfolioSummary,
   PriceBar,
@@ -80,6 +83,20 @@ export function useMarketOverview() {
   return useQuery({
     queryKey: ["market-overview"],
     queryFn: () => apiFetch<MarketOverviewItem[]>("/market/overview"),
+  });
+}
+
+export function useMarketSignals() {
+  return useQuery({
+    queryKey: ["market-signals"],
+    queryFn: () => apiFetch<MarketSignal[]>("/market/signals"),
+  });
+}
+
+export function useMarketSentiment() {
+  return useQuery({
+    queryKey: ["market-sentiment"],
+    queryFn: () => apiFetch<MarketSentiment[]>("/market/sentiment"),
   });
 }
 
@@ -159,6 +176,14 @@ export function usePortfolio(id: number) {
   return useQuery({
     queryKey: ["portfolio", id],
     queryFn: () => apiFetch<PortfolioDetail>(`/portfolios/${id}`),
+    enabled: Number.isFinite(id),
+  });
+}
+
+export function usePortfolioAnalytics(id: number) {
+  return useQuery({
+    queryKey: ["portfolio-analytics", id],
+    queryFn: () => apiFetch<PortfolioAnalytics>(`/portfolios/${id}/analytics`),
     enabled: Number.isFinite(id),
   });
 }

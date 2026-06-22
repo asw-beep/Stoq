@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -97,3 +99,21 @@ class PortfolioRepository:
 
     def get_stock_by_symbol(self, symbol: str) -> Stock | None:
         return self.db.scalar(select(Stock).where(Stock.symbol == symbol.upper()))
+
+    def prices_for_stocks(
+        self, stock_ids: list[int], days: int = 365
+    ) -> dict[int, list[HistoricalPrice]]:
+        """Recent price bars for multiple stocks, keyed by stock_id, oldest first."""
+        since = date.today() - timedelta(days=days + 30)
+        rows = list(
+            self.db.scalars(
+                select(HistoricalPrice)
+                .where(HistoricalPrice.stock_id.in_(stock_ids))
+                .where(HistoricalPrice.date >= since)
+                .order_by(HistoricalPrice.stock_id, HistoricalPrice.date)
+            )
+        )
+        result: dict[int, list[HistoricalPrice]] = {}
+        for row in rows:
+            result.setdefault(row.stock_id, []).append(row)
+        return result

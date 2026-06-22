@@ -10,6 +10,7 @@ from api.schemas import (
     HoldingCreate,
     HoldingOut,
     Page,
+    PortfolioAnalyticsOut,
     PortfolioCreate,
     PortfolioDetailOut,
     PortfolioSummaryOut,
@@ -95,6 +96,27 @@ def get_portfolio(
         total_cost=val.total_cost,
         total_value=val.total_value,
         total_gain_loss=val.total_gain_loss,
+    )
+
+
+@router.get("/{portfolio_id}/analytics", response_model=PortfolioAnalyticsOut)
+def get_portfolio_analytics(
+    portfolio_id: int,
+    current_user: User = Depends(get_current_user),
+    service: PortfolioService = Depends(get_service),
+) -> PortfolioAnalyticsOut:
+    try:
+        result = service.get_analytics(current_user.id, portfolio_id)
+    except PortfolioNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found"
+        ) from None
+    return PortfolioAnalyticsOut(
+        return_pct=result.return_pct,
+        annualized_return=result.annualized_return,
+        annualized_volatility=result.annualized_volatility,
+        sharpe_ratio=result.sharpe_ratio,
+        max_drawdown=result.max_drawdown,
     )
 
 

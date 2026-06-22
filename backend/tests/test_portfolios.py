@@ -2,11 +2,44 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
 from models.stock import HistoricalPrice, Stock
+
+
+def _seed_stock_prices(db_session, symbol, closes):
+    """Create a stock whose close series ends today (oldest first)."""
+    stock = Stock(symbol=symbol, name=f"{symbol} Inc.", sector="Tech")
+    db_session.add(stock)
+    db_session.flush()
+    n = len(closes)
+    for i, c in enumerate(closes):
+        d = date.today() - timedelta(days=n - 1 - i)
+        db_session.add(
+            HistoricalPrice(
+                stock_id=stock.id,
+                date=d,
+                open=c,
+                high=c,
+                low=c,
+                close=c,
+                volume=1_000,
+            )
+        )
+    db_session.commit()
+    return stock
+
+
+def _portfolio_with_holding(client, headers, symbol, shares, purchase_price):
+    pid = client.post("/portfolios", json={"name": "P"}, headers=headers).json()["id"]
+    client.post(
+        f"/portfolios/{pid}/holdings",
+        json={"symbol": symbol, "shares": shares, "purchase_price": purchase_price},
+        headers=headers,
+    )
+    return pid
 
 
 @pytest.fixture()
@@ -185,6 +218,70 @@ def test_remove_holding_404(client, auth_headers):
 def test_portfolios_require_auth(client):
     assert client.get("/portfolios").status_code == 401
     assert client.post("/portfolios", json={"name": "X"}).status_code == 401
+
+
+# ---- analytics (F4 portfolio dashboard) ----
+
+
+def test_portfolio_analytics_requires_auth(client):
+    assert client.get("/portfolios/1/analytics").status_code == 401
+
+
+def test_portfolio_analytics_404(client, auth_headers):
+    assert client.get("/portfolios/9999/analytics", headers=auth_headers).status_code == 404
+
+
+def test_portfolio_analytics_empty_portfolio(client, auth_headers):
+    pid = client.post("/portfolios", json={"name": "Empty"}, headers=auth_headers).json()["id"]
+    resp = client.get(f"/portfolios/{pid}/analytics", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "return_pct": None,
+        "annualized_return": None,
+        "annualized_volatility": None,
+        "sharpe_ratio": None,
+        "max_drawdown": None,
+    }
+
+
+def test_portfolio_analytics_insufficient_history(client, auth_headers, db_session):
+    # Only 10 days of history (< 20): return_pct still computes, time-series don't.
+    _seed_stock_prices(db_session, "AAPL", [100.0 + i for i in range(10)])
+    pid = _portfolio_with_holding(client, auth_headers, "AAPL", 1.0, 100.0)
+    data = client.get(f"/portfolios/{pid}/analytics", headers=auth_headers).json()
+    # latest close = 109, purchase 100 -> +9%
+    assert data["return_pct"] == 9.0
+    assert data["annualized_volatility"] is None
+    assert data["sharpe_ratio"] is None
+    assert data["max_drawdown"] is None
+
+
+def test_portfolio_analytics_constant_prices(client, auth_headers, db_session):
+    # Flat series: zero variance -> zero vol, undefined Sharpe, zero drawdown.
+    _seed_stock_prices(db_session, "FLAT", [100.0] * 25)
+    pid = _portfolio_with_holding(client, auth_headers, "FLAT", 1.0, 100.0)
+    data = client.get(f"/portfolios/{pid}/analytics", headers=auth_headers).json()
+    assert data["return_pct"] == 0.0
+    assert data["annualized_return"] == 0.0
+    assert data["annualized_volatility"] == 0.0
+    assert data["sharpe_ratio"] is None  # vol == 0 -> not defined
+    assert data["max_drawdown"] == 0.0
+
+
+def test_portfolio_analytics_max_drawdown(client, auth_headers, db_session):
+    # V-shape: rise 100->120 (peak), fall to 90 (trough), recover below peak.
+    closes = (
+        [100.0 + 2.0 * i for i in range(11)]      # 100..120  (peak 120)
+        + [120.0 - 3.0 * i for i in range(1, 11)]  # 117..90   (trough 90)
+        + [90.0 + 1.0 * i for i in range(1, 10)]   # 91..99    (stays < 120)
+    )
+    _seed_stock_prices(db_session, "VEE", closes)
+    pid = _portfolio_with_holding(client, auth_headers, "VEE", 1.0, 100.0)
+    data = client.get(f"/portfolios/{pid}/analytics", headers=auth_headers).json()
+    # peak 120 -> trough 90 => (120-90)/120 = 25%
+    assert data["max_drawdown"] == 25.0
+    assert data["annualized_volatility"] > 0
+    assert data["return_pct"] is not None
 
 
 def test_portfolio_isolation_between_users(client, make_user):

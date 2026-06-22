@@ -103,3 +103,30 @@ export interface PortfolioDetail {
 
 export type PriceRange = "1m" | "3m" | "6m" | "1y" | "max";
 export type ForecastModel = "xgboost";
+
+export interface MarketSignal {
+  symbol: string;
+  name?: string | null;
+  model: string;
+  direction?: number | null;
+  probability?: number | null;
+  forecast_date: string;
+  target_date: string;
+}
+
+export interface MarketSentiment {
+  symbol: string;
+  name?: string | null;
+  positive: number;
+  negative: number;
+  neutral: number;
+  total: number;
+}
+
+export interface PortfolioAnalytics {
+  return_pct?: number | null;
+  annualized_return?: number | null;
+  annualized_volatility?: number | null;
+  sharpe_ratio?: number | null;
+  max_drawdown?: number | null;
+}

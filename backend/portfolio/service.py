@@ -6,6 +6,8 @@ the requesting user before proceeding.
 
 from __future__ import annotations
 
+import math
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
@@ -34,6 +36,15 @@ class HoldingValuation:
     market_value: float | None
     cost_basis: float
     gain_loss: float | None
+
+
+@dataclass
+class PortfolioAnalytics:
+    return_pct: float | None
+    annualized_return: float | None
+    annualized_volatility: float | None
+    sharpe_ratio: float | None
+    max_drawdown: float | None
 
 
 @dataclass
@@ -137,6 +148,98 @@ class PortfolioService:
             raise HoldingNotFoundError(f"Holding {holding_id} not found on this portfolio")
         self.repo.delete_holding(holding)
         self.db.commit()
+
+    def get_analytics(self, user_id: int, portfolio_id: int) -> PortfolioAnalytics:
+        """Compute return %, annualized volatility, Sharpe ratio, and max drawdown.
+
+        Modeling assumptions (intentional simplifications):
+        - **Current allocation, not realized P&L.** The daily value series applies
+          *today's* share counts across the whole window — it measures the risk
+          profile of the current allocation, not what was actually held over time
+          (purchase/sale dates are ignored). ``return_pct`` is the only
+          cost-basis-aware figure.
+        - **Daily returns over a 365-day window** (``prices_for_stocks``); only
+          dates where *every* holding has a price contribute, and ≥ 20 such dates
+          are required before time-series metrics are reported.
+        - **Risk-free rate = 0%** for the Sharpe ratio (annualized via ×252 /
+          ×√252). Surfaced as a sub-label in the UI so the assumption is explicit.
+        """
+        portfolio = self._owned_or_raise(user_id, portfolio_id)
+        holdings = portfolio.holdings
+
+        if not holdings:
+            return PortfolioAnalytics(None, None, None, None, None)
+
+        # Single price query feeds both the return series and current valuation —
+        # the latest close per holding is the last (newest) bar in its series.
+        stock_ids = [h.stock_id for h in holdings]
+        prices_map = self.repo.prices_for_stocks(stock_ids, days=365)
+
+        total_cost = 0.0
+        value_parts: list[float] = []
+        for h in holdings:
+            total_cost += float(h.shares) * float(h.purchase_price)
+            bars = prices_map.get(h.stock_id)
+            if bars:
+                value_parts.append(float(h.shares) * float(bars[-1].close))
+        total_value = sum(value_parts) if value_parts else None
+        return_pct = (
+            round((total_value - total_cost) / total_cost * 100, 2)
+            if (total_value is not None and total_cost > 0)
+            else None
+        )
+
+        # Build portfolio daily value series (dates where ALL holdings have prices)
+        date_values: dict = defaultdict(float)
+        date_counts: dict = defaultdict(int)
+        for h in holdings:
+            for p in prices_map.get(h.stock_id, []):
+                date_values[p.date] += float(h.shares) * float(p.close)
+                date_counts[p.date] += 1
+
+        n_holdings = len(holdings)
+        complete_dates = sorted(d for d, c in date_counts.items() if c == n_holdings)
+
+        if len(complete_dates) < 20:
+            return PortfolioAnalytics(
+                return_pct=return_pct,
+                annualized_return=None,
+                annualized_volatility=None,
+                sharpe_ratio=None,
+                max_drawdown=None,
+            )
+
+        values = [date_values[d] for d in complete_dates]
+        daily_returns = [
+            (values[i] - values[i - 1]) / values[i - 1] for i in range(1, len(values))
+        ]
+
+        n = len(daily_returns)
+        mean_r = sum(daily_returns) / n
+        variance = sum((r - mean_r) ** 2 for r in daily_returns) / n
+        std_dev = math.sqrt(variance) if variance > 0 else 0.0
+
+        ann_return = round(mean_r * 252 * 100, 2)
+        ann_vol = round(std_dev * math.sqrt(252) * 100, 2)
+        sharpe = round(ann_return / ann_vol, 2) if ann_vol > 0 else None
+
+        # Max drawdown (peak-to-trough as %)
+        peak = values[0]
+        max_dd = 0.0
+        for v in values:
+            if v > peak:
+                peak = v
+            dd = (peak - v) / peak if peak > 0 else 0.0
+            if dd > max_dd:
+                max_dd = dd
+
+        return PortfolioAnalytics(
+            return_pct=return_pct,
+            annualized_return=ann_return,
+            annualized_volatility=ann_vol,
+            sharpe_ratio=sharpe,
+            max_drawdown=round(max_dd * 100, 2),
+        )
 
     # ---- internal ----
 
