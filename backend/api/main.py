@@ -39,6 +39,22 @@ _SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
 }
 
+# The interactive docs (non-prod only) load Swagger UI / ReDoc assets from the
+# jsdelivr CDN, so the strict `default-src 'none'` would render a blank page.
+# Relax the CSP for just those HTML routes; every other response keeps the
+# locked-down baseline above.
+_DOCS_CSP = (
+    "default-src 'none'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "connect-src 'self'; "
+    "img-src 'self' data: https://fastapi.tiangolo.com; "
+    "font-src 'self' https://cdn.jsdelivr.net; "
+    "worker-src 'self' blob:; "
+    "frame-ancestors 'none'"
+)
+_DOCS_PATHS = frozenset({"/docs", "/redoc"})
+
 
 def create_app(settings: Settings) -> FastAPI:
     """Build the application for the given settings.
@@ -78,6 +94,8 @@ def create_app(settings: Settings) -> FastAPI:
         response = await call_next(request)
         for header, value in _SECURITY_HEADERS.items():
             response.headers.setdefault(header, value)
+        if request.url.path in _DOCS_PATHS:
+            response.headers["Content-Security-Policy"] = _DOCS_CSP
         return response
 
     app.include_router(health.router)
