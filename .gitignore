@@ -4,8 +4,10 @@
 !.env.example
 
 # ---- Docs / Claude ----
-docs/
+# docs/ is committed (architecture/decisions/security context); keep internal-only
+# notes and the pre-hardening security review excluded.
 **/CLAUDE.md
+docs/ARCHITECTURE_FOR_SECURITY_TESTING.txt
 
 # ---- Misc ----
 sec.py

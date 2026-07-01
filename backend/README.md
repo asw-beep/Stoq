@@ -1,6 +1,8 @@
 # Backend — AI Financial Intelligence Platform
 
-FastAPI modular monolith. See `../docs/Architecutre.md` for the big picture.
+FastAPI modular monolith. See `../docs/Architecutre.md` for the big picture
+and [`../SECURITY.md`](../SECURITY.md) for the threat model and security
+regression suite.
 
 ## Layout
 

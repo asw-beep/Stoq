@@ -1,0 +1,114 @@
+---
+Stock Prediction System - Requirements To Provide
+Fill the sections below and paste files or values here (do NOT commit secrets to git).
+---
+
+1) Environment (.env)
+----------------------
+Provide a copy of the following keys filled in. Example values shown; replace them with your real values.
+
+DATABASE_URL=postgresql://<DB_USER>:<DB_PASS>@<DB_HOST>:5432/<DB_NAME>
+SECRET_KEY=<generate-with-openssl-rand-hex-32>
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+Notes:
+- Place these values in a local `.env` and do not commit it.
+- If you prefer local Postgres, include a user that can create schemas.
+
+2) Database Access
+-------------------
+If you want me to use your Postgres, provide either:
+- Full `DATABASE_URL` string (preferred), or
+- Individual values: host, port, dbname, username, password, SSL mode.
+
+3) JWT / Auth Policy
+---------------------
+Describe the user model and auth expectations:
+- Fields (e.g., id, email, password_hash, role)
+- Registration/login endpoints required? (yes/no)
+- Password hashing method (bcrypt/scrypt/argon2) or leave to me (bcrypt recommended)
+- Any roles/permissions (admin, user)
+
+4) Market Data Provider
+-----------------------
+Provider name (e.g., yfinance, AlphaVantage, IEX, Tiingo):
+API key(s):
+Base URL (if custom):
+Rate limits (requests per minute):
+Historical range required (years):
+Granularity required (daily, hourly, minute):
+Symbols whitelist or initial seed list (comma-separated):
+Preferred library/client to use (optional):
+
+5) News Provider
+----------------
+Provider name (e.g., NewsAPI, GDELT, custom feed):
+API key(s):
+Allowed sources/domains (whitelist):
+Rate limits and usage constraints:
+Do you allow storing full article text? (yes/no)
+
+6) Historical Data Files (optional)
+----------------------------------
+If you have bulk historical data to ingest instead of fetching live, provide:
+- File location (local path or GCS/HTTP URL):
+- Format (CSV, Parquet):
+- Schema example (first 5 lines or column names):
+- Compression (gzip/snappy):
+
+7) Data Frequency & Scope
+-------------------------
+Confirm:
+- Price cadence: `daily` | `intraday` | `minute`
+- Timezone for timestamps (e.g., UTC, America/New_York)
+- How many years of history to ingest (e.g., 5 years)
+
+8) Training Runtime & Constraints
+---------------------------------
+Where should training run? (local dev machine / backend container / ML server / GPU node):
+CPU cores available:
+GPU available? (yes/no; type):
+Max wall-clock time per training job (minutes):
+Retrain cadence (on-demand, daily, weekly):
+Preferred models to run first (Prophet, XGBoost):
+
+9) API Shapes & Requirements
+----------------------------
+If you want non-default fields or strict response shapes, list per endpoint.
+Minimal suggested responses will be implemented unless you provide overrides.
+
+Endpoints (confirm or change):
+- GET /stocks -> list stocks (fields: id, symbol, name)
+- GET /stocks/{symbol} -> stock details
+- GET /forecast/{symbol} -> list of forecasts (date, model, predicted_price, confidence)
+- GET /sentiment/{symbol} -> sentiment summary (bullish, bearish, neutral scores)
+- POST /portfolio -> create portfolio (name)
+- POST /portfolio/{id}/holdings -> add holdings (symbol, shares, purchase_price)
+
+If you want complete OpenAPI spec, provide it here (YAML/JSON) and I will adapt.
+
+10) Secrets Delivery Preference
+-----------------------------
+How will you share secrets? (paste into chat, upload file, private channel)
+Recommendation: paste `.env` contents directly into chat here and then delete locally after use.
+
+11) Priority Symbols
+--------------------
+Provide a short list of symbols to bootstrap the system (comma separated):
+
+12) Legal / Licensing Constraints
+--------------------------------
+Any restrictions on storing or serving market or news data? (e.g., "do not store full article text", "do not redistribute")
+
+13) Tests and Quality Gates
+---------------------------
+Do you require unit tests, integration tests, CI configuration now? If yes, list preferred CI provider (GitHub Actions).
+
+14) Contact & Next Steps
+------------------------
+Once you paste the filled values or upload files:
+- I will update `backend/.env` (local only), wire DB, run migrations, and implement real ingestion (no dummy data).
+- I will run a first on-demand training and return logs + sample forecasts.
+
+---
+End of template. Paste your filled values below or attach files and tell me which items you provided.
